@@ -745,6 +745,19 @@ public:
     return 1;
   }
 
+  /* Downstream change: #87 (sincos vectorization)*/
+  InstructionCost
+  getInsertExtractValueCost(unsigned Opcode,
+                            TTI::TargetCostKind CostKind) const {
+    // Note: The `insertvalue` cost here is chosen to match the default case of
+    // getInstructionCost() -- as pior to adding this helper `insertvalue` was
+    // not handled.
+    if (Opcode == Instruction::InsertValue)
+      return CostKind == TTI::TCK_RecipThroughput ? -1 : TTI::TCC_Basic;
+    return TTI::TCC_Free;
+  }
+  /* End downstream change: #87 */
+
   InstructionCost getMemoryOpCost(unsigned Opcode, Type *Src, Align Alignment,
                                   unsigned AddressSpace,
                                   TTI::TargetCostKind CostKind,
@@ -1296,9 +1309,13 @@ public:
     case Instruction::PHI:
     case Instruction::Switch:
       return TargetTTI->getCFInstrCost(Opcode, CostKind, I);
-    case Instruction::ExtractValue:
     case Instruction::Freeze:
       return TTI::TCC_Free;
+      /* Downstream change: #87 (sincos vectorization)*/
+    case Instruction::ExtractValue:
+    case Instruction::InsertValue:
+      return TargetTTI->getInsertExtractValueCost(Opcode, CostKind);
+      /* End downstream change: #87 */
     case Instruction::Alloca:
       if (cast<AllocaInst>(U)->isStaticAlloca())
         return TTI::TCC_Free;

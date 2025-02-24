@@ -416,9 +416,9 @@ public:
   /// has a vectorized variant available.
   bool hasVectorCallVariants() const { return VecCallVariantsFound; }
 
-  /// Returns true if there is at least one function call in the loop which
-  /// returns a struct type and needs to be vectorized.
-  bool hasStructVectorCall() const { return StructVecCallFound; }
+  /* Downstream change: #87 (sincos vectorization)*/
+  // Removed hasStructVectorCall()
+  /* End downstream change: #87 */
 
   unsigned getNumStores() const { return LAI->getNumStores(); }
   unsigned getNumLoads() const { return LAI->getNumLoads(); }
@@ -639,11 +639,9 @@ private:
   /// the use of those function variants.
   bool VecCallVariantsFound = false;
 
-  /// If we find a call (to be vectorized) that returns a struct type, record
-  /// that so we can bail out until this is supported.
-  /// TODO: Remove this flag once vectorizing calls with struct returns is
-  /// supported.
-  bool StructVecCallFound = false;
+  /* Downstream change: #87 (sincos vectorization)*/
+  // Removed StructVecCallFound
+  /* End downstream change: #87 */
 
   /// Keep track of all the countable and uncountable exiting blocks if
   /// the exact backedge taken count is not computable.

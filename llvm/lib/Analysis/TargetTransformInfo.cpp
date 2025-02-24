@@ -1113,6 +1113,18 @@ TargetTransformInfo::getVectorInstrCost(const Instruction &I, Type *Val,
   return Cost;
 }
 
+/* Downstream change: #87 (sincos vectorization)*/
+InstructionCost TargetTransformInfo::getInsertExtractValueCost(
+    unsigned Opcode, TTI::TargetCostKind CostKind) const {
+  assert((Opcode == Instruction::InsertValue ||
+          Opcode == Instruction::ExtractValue) &&
+         "Expecting Opcode to be insertvalue/extractvalue.");
+  InstructionCost Cost = TTIImpl->getInsertExtractValueCost(Opcode, CostKind);
+  assert(Cost >= 0 && "TTI should not produce negative costs!");
+  return Cost;
+}
+/* End downstream change: #87 */
+
 InstructionCost TargetTransformInfo::getReplicationShuffleCost(
     Type *EltTy, int ReplicationFactor, int VF, const APInt &DemandedDstElts,
     TTI::TargetCostKind CostKind) const {

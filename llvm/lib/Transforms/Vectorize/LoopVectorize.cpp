@@ -2350,7 +2350,11 @@ void InnerLoopVectorizer::scalarizeInstruction(const Instruction *Instr,
                                                VPReplicateRecipe *RepRecipe,
                                                const VPLane &Lane,
                                                VPTransformState &State) {
-  assert(!Instr->getType()->isAggregateType() && "Can't handle vectors");
+  /* Downstream change: #87 (sincos vectorization)*/
+  assert((!Instr->getType()->isAggregateType() ||
+          canVectorizeTy(Instr->getType())) &&
+         "Expected vectorizable or non-aggregate type.");
+  /* End downstream change: #87 */
 
   // Does this instruction return a value ?
   bool IsVoidRetTy = Instr->getType()->isVoidTy();
@@ -2855,11 +2859,13 @@ LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
   return ScalarCallCost;
 }
 
-static Type *maybeVectorizeType(Type *Elt, ElementCount VF) {
-  if (VF.isScalar() || (!Elt->isIntOrPtrTy() && !Elt->isFloatingPointTy()))
-    return Elt;
-  return VectorType::get(Elt, VF);
+/* Downstream change: #87 (sincos vectorization)*/
+static Type *maybeVectorizeType(Type *Ty, ElementCount VF) {
+  if (VF.isScalar() || !canVectorizeTy(Ty))
+    return Ty;
+  return toVectorizedTy(Ty, VF);
 }
+/* End downstream change: #87 */
 
 InstructionCost
 LoopVectorizationCostModel::getVectorIntrinsicCost(CallInst *CI,
@@ -3605,14 +3611,18 @@ void LoopVectorizationCostModel::collectLoopUniforms(ElementCount VF) {
         }
       }
 
-      // ExtractValue instructions must be uniform, because the operands are
-      // known to be loop-invariant.
+      /* Downstream change: #87 (sincos vectorization)*/
       if (auto *EVI = dyn_cast<ExtractValueInst>(&I)) {
-        assert(IsOutOfScope(EVI->getAggregateOperand()) &&
-               "Expected aggregate value to be loop invariant");
-        AddToWorklistIfAllowed(EVI);
-        continue;
+        if (IsOutOfScope(EVI->getAggregateOperand())) {
+          AddToWorklistIfAllowed(EVI);
+          continue;
+        }
+        // Only ExtractValue instructions where the aggregate value comes from a
+        // call are allowed to be non-uniform.
+        assert(isa<CallInst>(EVI->getAggregateOperand()) &&
+               "Expected aggregate value to be call return value");
       }
+      /* End downstream change: #87 */
 
       // If there's no pointer operand, there's nothing to do.
       auto *Ptr = getLoadStorePointerOperand(&I);
@@ -4492,8 +4502,8 @@ static bool willGenerateVectors(VPlan &Plan, ElementCount VF,
         llvm_unreachable("unhandled recipe");
       }
 
-      auto WillWiden = [&TTI, VF](Type *ScalarTy) {
-        Type *VectorTy = toVectorTy(ScalarTy, VF);
+      /* Downstream change: #87 (sincos vectorization)*/
+      auto WillGenerateTargetVectors = [&TTI, VF](Type *VectorTy) {
         unsigned NumLegalParts = TTI.getNumberOfParts(VectorTy);
         if (!NumLegalParts)
           return false;
@@ -4505,9 +4515,10 @@ static bool willGenerateVectors(VPlan &Plan, ElementCount VF,
           // explicitly ask TTI about the register class uses for each part.
           return NumLegalParts <= VF.getKnownMinValue();
         }
-        // Two or more parts that share a register - are vectorized.
+        // Two or more elements that share a register - are vectorized.
         return NumLegalParts < VF.getKnownMinValue();
       };
+      /* End downstream change: #87 */
 
       // If no def nor is a store, e.g., branches, continue - no value to check.
       if (R.getNumDefinedValues() == 0 &&
@@ -4524,8 +4535,11 @@ static bool willGenerateVectors(VPlan &Plan, ElementCount VF,
       Type *ScalarTy = TypeInfo.inferScalarType(ToCheck);
       if (!Visited.insert({ScalarTy}).second)
         continue;
-      if (WillWiden(ScalarTy))
+      Type *WideTy = toVectorizedTy(ScalarTy, VF);
+      /* Downstream change: #87 (sincos vectorization)*/
+      if (any_of(getContainedTypes(WideTy), WillGenerateTargetVectors))
         return true;
+      /* End downstream change: #87 */
     }
   }
 
@@ -5481,10 +5495,15 @@ InstructionCost LoopVectorizationCostModel::computePredInstDiscount(
     // Compute the scalarization overhead of needed insertelement instructions
     // and phi nodes.
     if (isScalarWithPredication(I, VF) && !I->getType()->isVoidTy()) {
-      ScalarCost += TTI.getScalarizationOverhead(
-          cast<VectorType>(toVectorTy(I->getType(), VF)),
-          APInt::getAllOnes(VF.getFixedValue()), /*Insert*/ true,
-          /*Extract*/ false, CostKind);
+      /* Downstream change: #87 (sincos vectorization)*/
+      Type *WideTy = toVectorizedTy(I->getType(), VF);
+      for (Type *VectorTy : getContainedTypes(WideTy)) {
+        ScalarCost += TTI.getScalarizationOverhead(
+            cast<VectorType>(VectorTy), APInt::getAllOnes(VF.getFixedValue()),
+            /*Insert=*/true,
+            /*Extract=*/false, CostKind);
+      }
+      /* End downstream change: #87 */
       ScalarCost +=
           VF.getFixedValue() * TTI.getCFInstrCost(Instruction::PHI, CostKind);
     }
@@ -5495,16 +5514,21 @@ InstructionCost LoopVectorizationCostModel::computePredInstDiscount(
     // overhead.
     for (Use &U : I->operands())
       if (auto *J = dyn_cast<Instruction>(U.get())) {
-        assert(VectorType::isValidElementType(J->getType()) &&
+        /* Downstream change: #87 (sincos vectorization)*/
+        assert(canVectorizeTy(J->getType()) &&
                "Instruction has non-scalar type");
         if (CanBeScalarized(J))
           Worklist.push_back(J);
         else if (needsExtract(J, VF)) {
-          ScalarCost += TTI.getScalarizationOverhead(
-              cast<VectorType>(toVectorTy(J->getType(), VF)),
-              APInt::getAllOnes(VF.getFixedValue()), /*Insert*/ false,
-              /*Extract*/ true, CostKind);
+          Type *WideTy = toVectorizedTy(J->getType(), VF);
+          for (Type *VectorTy : getContainedTypes(WideTy)) {
+            ScalarCost += TTI.getScalarizationOverhead(
+                cast<VectorType>(VectorTy),
+                APInt::getAllOnes(VF.getFixedValue()), /*Insert*/ false,
+                /*Extract*/ true, CostKind);
+          }
         }
+        /* End downstream change: #87 */
       }
 
     // Scale the total scalar cost by block probability.
@@ -5982,13 +6006,19 @@ LoopVectorizationCostModel::getScalarizationOverhead(Instruction *I,
     return 0;
 
   InstructionCost Cost = 0;
-  Type *RetTy = toVectorTy(I->getType(), VF);
+  /* Downstream change: #87 (sincos vectorization)*/
+  Type *RetTy = toVectorizedTy(I->getType(), VF);
   if (!RetTy->isVoidTy() &&
-      (!isa<LoadInst>(I) || !TTI.supportsEfficientVectorElementLoadStore()))
-    Cost += TTI.getScalarizationOverhead(
-        cast<VectorType>(RetTy), APInt::getAllOnes(VF.getKnownMinValue()),
-        /*Insert*/ true,
-        /*Extract*/ false, CostKind);
+      (!isa<LoadInst>(I) || !TTI.supportsEfficientVectorElementLoadStore())) {
+
+    for (Type *VectorTy : getContainedTypes(RetTy)) {
+      Cost += TTI.getScalarizationOverhead(
+          cast<VectorType>(VectorTy), APInt::getAllOnes(VF.getKnownMinValue()),
+          /*Insert=*/true,
+          /*Extract=*/false, CostKind);
+    }
+  }
+  /* End downstream change: #87 */
 
   // Some targets keep addresses scalar.
   if (isa<LoadInst>(I) && !TTI.prefersVectorizedAddressing())
@@ -6246,9 +6276,11 @@ void LoopVectorizationCostModel::setVectorizedCallDecision(ElementCount VF) {
 
       bool MaskRequired = Legal->isMaskRequired(CI);
       // Compute corresponding vector type for return value and arguments.
-      Type *RetTy = toVectorTy(ScalarRetTy, VF);
+      /* Downstream change: #87 (sincos vectorization)*/
+      Type *RetTy = toVectorizedTy(ScalarRetTy, VF);
       for (Type *ScalarTy : ScalarTys)
-        Tys.push_back(toVectorTy(ScalarTy, VF));
+        Tys.push_back(toVectorizedTy(ScalarTy, VF));
+      /* End downstream change: #87 */
 
       // An in-loop reduction using an fmuladd intrinsic is a special case;
       // we don't want the normal cost for that intrinsic.
@@ -6425,7 +6457,8 @@ LoopVectorizationCostModel::getInstructionCost(Instruction *I,
            HasSingleCopyAfterVectorization(I, VF));
     VectorTy = RetTy;
   } else
-    VectorTy = toVectorTy(RetTy, VF);
+    // Downstream change: #87 (sincos vectorization)
+    VectorTy = toVectorizedTy(RetTy, VF);
 
   if (VF.isVector() && VectorTy->isVectorTy() &&
       !TTI.getNumberOfParts(VectorTy))
@@ -8547,7 +8580,7 @@ VPWidenRecipe *VPRecipeBuilder::tryToWiden(Instruction *I,
   case Instruction::Shl:
   case Instruction::Sub:
   case Instruction::Xor:
-  case Instruction::Freeze:
+  case Instruction::Freeze: {
     SmallVector<VPValue *> NewOps(Operands);
     if (Instruction::isBinaryOp(I->getOpcode())) {
       // The legacy cost model uses SCEV to check if some of the operands are
@@ -8572,6 +8605,18 @@ VPWidenRecipe *VPRecipeBuilder::tryToWiden(Instruction *I,
       NewOps[1] = GetConstantViaSCEV(NewOps[1]);
     }
     return new VPWidenRecipe(*I, make_range(NewOps.begin(), NewOps.end()));
+  }
+  /* Downstream change: #87 (sincos vectorization)*/
+  case Instruction::ExtractValue: {
+    SmallVector<VPValue *> NewOps(Operands);
+    Type *I32Ty = IntegerType::getInt32Ty(I->getContext());
+    auto *EVI = cast<ExtractValueInst>(I);
+    assert(EVI->getNumIndices() == 1 && "Expected one extractvalue index");
+    unsigned Idx = EVI->getIndices()[0];
+    NewOps.push_back(Plan.getOrAddLiveIn(ConstantInt::get(I32Ty, Idx, false)));
+    return new VPWidenRecipe(*I, make_range(NewOps.begin(), NewOps.end()));
+  }
+    /* End downstream change: #87 */
   };
 }
 
@@ -9852,7 +9897,8 @@ void VPReplicateRecipe::execute(VPTransformState &State) {
             VectorType::get(UI->getType(), State.VF));
         State.set(this, Poison);
       }
-      State.packScalarIntoVectorValue(this, *State.Lane);
+      // Downstream change: #87 (sincos vectorization)
+      State.packScalarIntoVectorizedValue(this, *State.Lane);
     }
     return;
   }
@@ -10369,12 +10415,9 @@ bool LoopVectorizePass::processLoop(Loop *L) {
     return false;
   }
 
-  if (LVL.hasStructVectorCall()) {
-    reportVectorizationFailure("Auto-vectorization of calls that return struct "
-                               "types is not yet supported",
-                               "StructCallVectorizationUnsupported", ORE, L);
-    return false;
-  }
+  /* Downstream change: #87 (sincos vectorization)*/
+  // Remove StructCallVectorizationUnsupported failure.
+  /* End downstream change: #87 */
 
   // Entrance to the VPlan-native vectorization path. Outer loops are processed
   // here. They may require CFG and instruction level transformations before
