@@ -67,11 +67,13 @@ bool HardwareLoopInfo::canAnalyze(LoopInfo &LI) {
   return true;
 }
 
+/* Downstream change: #87 (sincos vectorization)*/
 IntrinsicCostAttributes::IntrinsicCostAttributes(
     Intrinsic::ID Id, const CallBase &CI, InstructionCost ScalarizationCost,
-    bool TypeBasedOnly)
+    bool TypeBasedOnly, const TargetLibraryInfo *LibInfo)
     : II(dyn_cast<IntrinsicInst>(&CI)), RetTy(CI.getType()), IID(Id),
-      ScalarizationCost(ScalarizationCost) {
+      ScalarizationCost(ScalarizationCost), LibInfo(LibInfo) {
+  /* End downstream change: #87 */
 
   if (const auto *FPMO = dyn_cast<FPMathOperator>(&CI))
     FMF = FPMO->getFastMathFlags();
@@ -101,13 +103,14 @@ IntrinsicCostAttributes::IntrinsicCostAttributes(Intrinsic::ID Id, Type *Ty,
     ParamTys.push_back(Argument->getType());
 }
 
-IntrinsicCostAttributes::IntrinsicCostAttributes(Intrinsic::ID Id, Type *RTy,
-                                                 ArrayRef<const Value *> Args,
-                                                 ArrayRef<Type *> Tys,
-                                                 FastMathFlags Flags,
-                                                 const IntrinsicInst *I,
-                                                 InstructionCost ScalarCost)
-    : II(I), RetTy(RTy), IID(Id), FMF(Flags), ScalarizationCost(ScalarCost) {
+/* Downstream change: #87 (sincos vectorization)*/
+IntrinsicCostAttributes::IntrinsicCostAttributes(
+    Intrinsic::ID Id, Type *RTy, ArrayRef<const Value *> Args,
+    ArrayRef<Type *> Tys, FastMathFlags Flags, const IntrinsicInst *I,
+    InstructionCost ScalarCost, TargetLibraryInfo const *LibInfo)
+    : II(I), RetTy(RTy), IID(Id), FMF(Flags), ScalarizationCost(ScalarCost),
+      LibInfo(LibInfo) {
+  /* End downstream change: #87 */
   ParamTys.insert(ParamTys.begin(), Tys.begin(), Tys.end());
   Arguments.insert(Arguments.begin(), Args.begin(), Args.end());
 }
