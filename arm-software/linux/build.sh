@@ -36,6 +36,7 @@ OS_NAME=${OS_NAME:-"linux"}
 TAR_NAME=${TAR_NAME:-"atfl-${ATFL_VERSION}-${OS_NAME}-`uname -m`.tar.gz"}
 ATFL_ASSERTIONS=${ATFL_ASSERTIONS:-"ON"}
 ATFL_TARGET_TRIPLE=${ATFL_TARGET_TRIPLE:-"`uname -m`-unknown-linux-gnu"}
+ARM_TOOLCHAIN_ID=${ARM_TOOLCHAIN_ID:-"unset"}
 PROCESSOR_COUNT=$(getconf _NPROCESSORS_ONLN)
 PARALLEL_JOBS=${PARALLEL_JOBS:-"${PROCESSOR_COUNT}"}
 # " <-- this is to help syntax highlighters to find a matching double quote
@@ -103,6 +104,7 @@ COMPILER_CMAKE_FLAGS=(
     -DLIBOMP_USE_HWLOC=False
     -DLIBOMP_OMPT_SUPPORT=ON
     -DLIBOMP_OMPD_GDB_SUPPORT=OFF
+    -DARM_TOOLCHAIN_ID="${ARM_TOOLCHAIN_ID}"
     -DCLANG_VENDOR="Arm Toolchain for Linux ${ATFL_VERSION}"
     -DFLANG_VENDOR="Arm Toolchain for Linux ${ATFL_VERSION}"
     -DLLVM_VERSION_SUFFIX=""
@@ -197,6 +199,8 @@ Environment Variables:
                         (default: $ATFL_VERSION)
     ATFL_TARGET_TRIPLE  Specify the default target triple
                         (default: $ATFL_TARGET_TRIPLE)
+    ARM_TOOLCHAIN_ID    Specify the toolchain ID
+                        (default: $ARM_TOOLCHAIN_ID)
     OS_NAME             Specify the OS name
                         (default: $OS_NAME)
     TAR_NAME            The name of the tarball to be created
