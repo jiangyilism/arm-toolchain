@@ -1,4 +1,5 @@
 # UNSUPPORTED: system-windows
+# UNSUPPORTED: system-linux
 
 # Test overall lit timeout (--max-time).
 #

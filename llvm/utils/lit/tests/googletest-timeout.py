@@ -1,4 +1,5 @@
 # REQUIRES: lit-max-individual-test-time
+# UNSUPPORTED: system-linux
 
 ###############################################################################
 # Check tests can hit timeout when set

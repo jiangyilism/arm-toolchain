@@ -1,3 +1,4 @@
+# UNSUPPORTED: system-linux
 ## Check xunit output.
 # RUN: not %{lit} --report-failures-only --xunit-xml-output %t.xunit.xml %{inputs}/xunit-output
 # RUN: FileCheck --input-file=%t.xunit.xml %s
