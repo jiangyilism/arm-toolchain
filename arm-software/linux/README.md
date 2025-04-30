@@ -303,3 +303,12 @@ $ armclang -fopenmp -o example example.o `pkg-config armpl-dynamic-lp64-omp --li
 $ chrpath -l ./example
 ./example: RUNPATH=$HOME/armpl/armpl_24.10_flang-new/lib/pkgconfig/../../lib:$HOME/atfl/lib/clang/20/lib/aarch64-unknown-linux-gnu:$HOME/atfl/bin/../lib/aarch64-unknown-linux-gnu
 ```
+
+## Providing feedback and reporting issues
+
+Please raise an issue via [Github issues](https://github.com/arm/arm-toolchain/issues)
+and add the `ATfL` label if it is specific to the Arm Toolchain for Linux.
+
+## Contributions and Pull Requests
+
+Please see the [Contribution Guide](../../CONTRIBUTING.md) for details.
