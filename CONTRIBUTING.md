@@ -36,13 +36,15 @@ For guidance on how to contribute to the upstream projects see:
 
 ### Report an issue
 
-Please make sure that the issue is specific to the *arm-toolchain*
-before reporting. If the issue exists in *llvm-project* or *picolibc*
-then please report the issue in the upstream project.
+Arm Toolchain is heavily dependent on the *llvm* and *picolibc* projects.  If you have an issue that is generic to one of these projects, you may want to submit it directly:
+* [LLVM issue tracker](https://github.com/llvm/llvm-project/issues)
+* [Picolibc issue tracker](https://github.com/picolibc/picolibc/issues)
 
-Please create a GitHub issue in the *arm-toolchain* project
-[Issues](https://github.com/arm/arm-toolchain/issues)
-list.
+This will allow you to interact directly with this community, including Arm's development team.
+
+If the issue is in Arm Toolchain itself, or if you are not sure, please create a GitHub issue in the *arm-toolchain* project:
+* [Arm Toolchain issue tracker](https://github.com/arm/arm-toolchain/issues)
+* Please add the `ATfE` label for Arm Toolchain for Embedded issues, or `ATfL` for Arm Toolchain for Linux.
 
 ### Submit a fix
 
