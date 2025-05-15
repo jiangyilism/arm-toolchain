@@ -71,6 +71,8 @@ tools to the `LLVM_DISTRIBUTION_COMPONENTS` CMake list.
 
 ## Building
 
+The commands in the sections below assume you are in the `arm-toolchain/arm-software/embedded` directory.
+
 The toolchain can be built directly with CMake.
 
 ```
@@ -93,7 +95,7 @@ export CXX=clang++
 mkdir repos
 git -C repos clone https://github.com/picolibc/picolibc.git
 git -C repos/picolibc am -k "$PWD"/patches/picolibc/*.patch
-git -C arm-toolchain am -k "$PWD"/patches/llvm-project/*.patch
+git -C ../.. am -k "$PWD"/patches/llvm-project/*.patch
 mkdir build
 cd build
 cmake .. -GNinja -DFETCHCONTENT_SOURCE_DIR_PICOLIBC=../repos/picolibc
