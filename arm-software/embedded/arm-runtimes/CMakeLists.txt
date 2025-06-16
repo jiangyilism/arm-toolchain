@@ -657,6 +657,7 @@ if(C_LIBRARY STREQUAL llvmlibc)
         -DLLVM_ENABLE_PER_TARGET_RUNTIME_DIR=ON
         -DLLVM_ENABLE_RUNTIMES=libc
         -DLLVM_INCLUDE_TESTS=OFF # llvmlibc's tests require C++, so can't be built until llvmlibc can support libc++
+        -DLLVM_LIBC_ALL_HEADERS=ON
         -DLLVM_LIBC_FULL_BUILD=ON
         STEP_TARGETS configure build install
         USES_TERMINAL_CONFIGURE TRUE
@@ -754,7 +755,7 @@ if(ENABLE_CXX_LIBS)
             -DLIBCXX_ENABLE_EXCEPTIONS=${ENABLE_EXCEPTIONS}
             -DLIBCXX_ENABLE_RTTI=${ENABLE_RTTI}
             )
-            set(lib_compile_flags "${lib_compile_flags} \"-Dvfprintf(stream$<COMMA> format$<COMMA> vlist)=vprintf(format$<COMMA> vlist)\" \"-Dfprintf(stream$<COMMA> format$<COMMA> ...)=printf(format)\" -D_LIBCPP_PRINT=1")
+            set(lib_compile_flags "${lib_compile_flags} -D_LIBCPP_PRINT=1")
     elseif(C_LIBRARY MATCHES "^newlib")
         set(cxxlibs_extra_cmake_options
             -DLIBCXXABI_ENABLE_THREADS=OFF
