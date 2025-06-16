@@ -7,13 +7,25 @@
 //
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "platform.h"
 
-int main(int, char **);
+extern int main(int argc, char **argv);
 
-__attribute__((used)) static void c_startup(void) {
+extern void _platform_init();
+
+extern char __data_source[];
+extern char __data_start[];
+extern char __data_size[];
+extern char __bss_start[];
+extern char __bss_size[];
+
+void c_startup(void) {
+  memcpy(__data_start, __data_source, (size_t)__data_size);
+  memset(__bss_start, 0, (size_t)__bss_size);
   _platform_init();
   _Exit(main(0, NULL));
 }

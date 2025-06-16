@@ -22,15 +22,7 @@
 cmake_minimum_required(VERSION 3.20.0)
 project(llvmlibc-support LANGUAGES C ASM)
 
-add_library(semihost STATIC
-  init.c
-  exit.c
-  stdio_read.c
-  stdio_write.c
-)
+add_subdirectory(crt0) # crt0 and crt0-semihost
+add_subdirectory(semihost)
 
-add_library(crt0 STATIC
-  crt0.c
-)
-
-install(TARGETS semihost crt0)
+install(TARGETS crt0 crt0-semihost semihost)
