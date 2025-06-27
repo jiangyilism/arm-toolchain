@@ -3,7 +3,7 @@
         "common": {
             "TARGET_ARCH": "armv8.1m.main",
             "VARIANT": "armv8.1m.main_hard_nofp_mve_pacret_bti_exn_rtti",
-            "COMPILE_FLAGS": "-mfloat-abi=hard -march=armv8.1m.main+mve+pacbti -mfpu=none -mbranch-protection=pac-ret+bti -mno-unaligned-access",
+            "COMPILE_FLAGS": "-mfloat-abi=hard -march=armv8.1m.main+mve -mfpu=none -mbranch-protection=pac-ret+bti -mno-unaligned-access",
             "ENABLE_EXCEPTIONS": "ON",
             "ENABLE_RTTI": "ON",
             "TEST_EXECUTOR": "fvp",
